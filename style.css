@@ -1,0 +1,23 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+.flext-align {
+    display: flex;
+    /* justify-content: center; */
+    align-items: center;
+}
+.container-title {
+    height: 10vh;
+    padding: 2vw;
+    /* border: 1px dashed red; */
+}
+.container-map {
+    /* border: 1px dashed red; */
+    width: 100vw;
+    height: 90vh;
+    padding: 2vw;
+    border: 0.0625rem solid black;
+    border-radius: 0.3rem;
+}

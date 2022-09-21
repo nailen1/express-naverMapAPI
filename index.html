@@ -1,0 +1,240 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주변 약국 위치 정보 맵</title>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js" integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+    <script type="text/javascript" src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=7tp9fda2ao"></script>
+</head>
+<body>
+    <div class="container-title flext-align">
+        <h4>pharmacies around me</h4>
+    </div>
+<div class="container-map">
+    <div id="map" style="width: 100%; height:100%"></div>
+</div>
+</body>
+<script>
+    $(document).ready(function(){
+        let xy = getLocation();
+        console.log(xy);
+        //지도를 삽입할 HTML 요소 또는 HTML 요소의 id를 지정합니다.
+var mapDiv = document.getElementById('map'); // 'map'으로 선언해도 동일
+
+//옵션 없이 지도 객체를 생성하면 서울 시청을 중심으로 하는 16 레벨의 지도가 생성됩니다.
+var map = new naver.maps.Map(mapDiv);
+
+function getLocation(){
+    let xy = new Object();
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(function(position){
+            xy.lat = position.coords.latitude;
+            xy.lng = position.coords.longitude;
+            console.log(xy);
+
+        })
+    }
+    return xy;
+}
+    })
+</script>
+</html> -->
+
+<!-- sync process -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>주변 약국 위치 정보 맵</title>
+
+    <link rel="stylesheet" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"
+        integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+    <script type="text/javascript"
+        src="https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=7tp9fda2ao&submodules=geocoder"></script>
+</head>
+
+<body>
+    <div class="container-title flext-align">
+        <h4>pharmacies around me</h4>
+    </div>
+    <div class="container-map">
+        <div id="map" style="width: 100%; height:100%"></div>
+    </div>
+</body>
+<script>
+    $(document).ready(async function () {
+        let myPosition = await getLocation();
+        console.log(myPosition);
+        // my position => address.
+        await naver.maps.Service.reverseGeocode({
+            location: new naver.maps.LatLng(myPosition.lat, myPosition.lng)
+        }, function (status, response) {
+            let result = response.result;
+            let items = result.items;
+            let sido_arr = items[0].addrdetail.sido.split(" ");
+            let gugun_arr = items[0].addrdetail.sigugun.split(" ");
+            let sido = sido_arr[0];
+            let gugun;
+            gugun = (sido_arr.length === 1 ? gugun_arr[0] : sido_arr[1]);
+
+            console.log(sido, '+', gugun)
+
+
+            $.ajax({
+                url: "/pharmacies",
+                type: "GET",
+                cache: false,
+                dataType: "json",
+                //  data be sent to.
+                data: {
+                    "Q0": sido,
+                    "Q1": gugun,
+                    "QT": "",
+                    "QN": "",
+                    "ORD": "",
+                    "pageNo": "1",
+                    "numOfRows": "1000"
+                },
+                // x: response data from express. 
+                success: function (data) {
+                    console.log(data)
+
+                    var mapDiv = document.getElementById('map');
+                    var mapOptions = {
+                        center: new naver.maps.LatLng(myPosition.lat, myPosition.lng),
+                        zoom: 16,
+                    }
+                    var map = new naver.maps.Map(mapDiv, mapOptions);
+
+
+                    let marker = new naver.maps.Marker({
+                        map: map,
+                        position: myPosition
+                    });
+
+
+                    data.forEach((x, i) => {
+                        let name = x.dutyName;
+                        let addr = x.dutyAddr;
+                        let tel = x.dutyTel1;
+                        // let positionPharm = addrToCoord(addr);
+                        // console.log(positionPharm)
+                        // let positionPharm = new naver.maps.LatLng(x.wgs84Lat, x.wgs84Lon)
+
+                        naver.maps.Service.geocode({
+                            query: addr
+                        }, function (status, response) {
+                            if (status === naver.maps.Service.Status.ERROR) {
+                                if (!addr) {
+                                    return alert('Geocode Error, Please check address');
+                                }
+                                return alert('Geocode Error, address:' + addr);
+                            }
+
+                            if (response.v2.meta.totalCount === 0) {
+                                return alert('No result.');
+                            }
+
+                            let item = response.v2.addresses[0];
+                            let positionPharm = new naver.maps.Point(item.x, item.y);
+                            console.log(positionPharm)
+
+                            let marker = new naver.maps.Marker({
+                                map: map,
+                                position: positionPharm
+                            });
+
+                            var contentString = [
+                                '<div class="iw_inner">',
+                                '   <h3>' + name + '</h3>',
+                                '   <p>' + addr + '</p>',
+                                '   <p>' + tel + '</p>',
+                                '</div>'
+                            ].join('');
+
+                            var infowindow = new naver.maps.InfoWindow({
+                                content: contentString,
+                                maxWidth: 140,
+                                backgroundColor: "#eee",
+                                borderColor: "#2db400",
+                                borderWidth: 5,
+                                anchorSize: new naver.maps.Size(30, 30),
+                                anchorSkew: true,
+                                anchorColor: "#eee",
+                                pixelOffset: new naver.maps.Point(20, -20)
+                            });
+
+                            naver.maps.Event.addListener(marker, "click", function (e) {
+                                if (infowindow.getMap()) {
+                                    infowindow.close();
+                                } else {
+                                    infowindow.open(map, marker);
+                                }
+                            });
+                        })
+                    })
+                },
+                error: function (request, status, error) {
+                    console.log(request)
+                    console.log(status)
+                    console.log(error)
+                },
+            })
+
+        });
+
+    })
+    // function noticed as an async.
+    async function getLocation() {
+        let xy = new Object();
+
+        // process below would be processed async. 
+        if (navigator.geolocation) {
+            let promise = new Promise((resolve, rejected) => {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    // if request succeed, returns resolve(something).
+                    resolve(position);
+                })
+            })
+            let position = await promise;
+            xy.lat = position.coords.latitude;
+            xy.lng = position.coords.longitude;
+        }
+        return xy;
+    }
+
+    // function addrToCoord(addr) {
+    //     let xy;
+    //     naver.maps.Service.geocode({
+    //         query: addr
+    //     }, function (status, response) {
+    //         if (status === naver.maps.Service.Status.ERROR) {
+    //             if (!addr) {
+    //                 return alert('Geocode Error, Please check address');
+    //             }
+    //             return alert('Geocode Error, address:' + addr);
+    //         }
+
+    //         if (response.v2.meta.totalCount === 0) {
+    //             return alert('No result.');
+    //         }
+
+    //         let item = response.v2.addresses[0];
+    //         xy = new naver.maps.Point(item.x, item.y);
+
+
+    //     })
+    //     console.log(xy)
+    //     return xy;
+    // }
+</script>
+
+</html>
